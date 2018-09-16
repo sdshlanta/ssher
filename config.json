@@ -1,0 +1,23 @@
+{
+    "netcfg":{
+        "hosts":[
+            "192.168.80.0/24"
+        ],
+        "ports":[
+            "22"
+        ]
+    },
+    "users":[
+        "root",
+        "user",
+        "ubuntu",
+        "administrator",
+        "msfadmin"
+    ],
+    "passwords":[
+        "Password1!",
+        "toor",
+        "administrator",
+        "msfadmin"
+    ]
+}
