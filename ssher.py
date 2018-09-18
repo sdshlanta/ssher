@@ -8,6 +8,7 @@ import paramiko
 import argparse
 import logging
 import masscan
+import socket
 import random
 import queue
 import time
