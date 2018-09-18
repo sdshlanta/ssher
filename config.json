@@ -12,12 +12,38 @@
         "user",
         "ubuntu",
         "administrator",
-        "msfadmin"
+        "msfadmin",
+        "james",
+        "david",
+        "christopher",
+        "george",
+        "ronald",
+        "john",
+        "richard",
+        "daniel",
+        "kenneth",
+        "anthony",
+        "robert",
+        "charles",
+        "paul",
+        "steven",
+        "kevin",
+        "michael",
+        "joseph",
+        "mark",
+        "edward",
+        "jason",
+        "william",
+        "thomas",
+        "donald",
+        "brian",
+        "jeff"
     ],
     "passwords":[
         "Password1!",
         "toor",
         "administrator",
-        "msfadmin"
+        "msfadmin",
+        "admin"
     ]
 }
