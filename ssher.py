@@ -39,7 +39,7 @@ retry = False
 commands = ()
 working = []
 
-sucessfulAttempts = {}
+successfulAttempts = {}
 
 hostsToRunOn = ipaddress.ip_network('0.0.0.0')
 commandToExecute = ''
@@ -57,7 +57,7 @@ def executeCommands(attempt):
     except paramiko.ssh_exception.AuthenticationException:
         sys.stderr.write(colored('[!!!]', 'red') + '%s@%s login failed.\n' % (attempt[2], attempt[0]))
         client.close()
-        del sucessfulAttempts[attempt]
+        del successfulAttempts[attempt]
         return
     while running:
         barrier.wait()
@@ -89,7 +89,7 @@ def executeCommands(attempt):
                     sys.stderr.write(colored('[!!!]','red') + '%s@%s unable to establish SFTP. %s\n' % (attempt[2], attempt[0], str(e)))
         barrier.wait()
     client.close()
-    del sucessfulAttempts[attempt]
+    del successfulAttempts[attempt]
 
 def chunks(l, n):
     for i in range(0, len(l), n):
@@ -100,21 +100,21 @@ def testCredsMP():
     pass
 
 def testCreds(tid):
-    # randomlly offset the start of each thread to prevent overwhelming any single SSH server
+    # randomly offset the start of each thread to prevent overwhelming any single SSH server
     time.sleep(random.random())
-    # create client with auto accempt policy.
+    # create client with auto accept policy.
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     # retry while the queue has items in it and there are
-    # no threads which are still working.  The mechinism isn't
-    # perfict but its good enough for us.
+    # no threads which are still working.  The mechanism isn't
+    # perfect but its good enough for us.
     while q.qsize() > 0 or any(working):
         try:
             attempt = q.get(timeout=5)
             working[tid] = True
             client.connect(*attempt, look_for_keys=False)
             print(colored('[###]', 'green'), 'ssh %s@%s -p %d password: %s' % (attempt[2],attempt[0],attempt[1], attempt[3]))
-            sucessfulAttempts[attempt] = attempt
+            successfulAttempts[attempt] = attempt
 
             for command in commands:
                 client.exec_command(command)
@@ -164,7 +164,7 @@ def main():
                 sys.stderr.write(colored('[!!!]', 'red') + " Invalid IP Address %s: %s" % (host, str(e)))
                 exit(1)
     else:
-        scaner = masscan.PortScanner()
+        scanner = masscan.PortScanner()
         if args.xml is not None:
             try:
                 with open(args.xml) as fp:
@@ -173,7 +173,7 @@ def main():
                 sys.stderr.write(colored('[!!!]', 'red') + " Error opening XML file: %s" % str(e))
                 exit(1)
             try:
-                scanWithMetadata = scaner.analyse_masscan_xml_scan(masscanXML)
+                scanWithMetadata = scanner.analyse_masscan_xml_scan(masscanXML)
             except masscan.PortScannerError as e:
                 sys.stderr.write(colored('[!!!]', 'red') + " Error parsing XML: %s\n" % str(e))
                 exit(1)
@@ -181,7 +181,7 @@ def main():
             hostsToScan = ' '.join(config['netcfg']['hosts'])
             portsToScan = ','.join(config['netcfg']['ports'])
             try:
-                scanWithMetadata = scaner.scan(hostsToScan, portsToScan, arguments='--wait %d --rate 20000' % (args.wait))
+                scanWithMetadata = scanner.scan(hostsToScan, portsToScan, arguments='--wait %d --rate 20000' % (args.wait))
             except (masscan.PortScannerError, masscan.NetworkConnectionError) as e:
                 sys.stderr.write(colored('[!!!]', 'red') + "Error running scan: %s\n" % str(e))
                 exit(1)
@@ -194,8 +194,8 @@ def main():
     random.shuffle(attemptArgs) # ensure we aren't slamming the same host/user all the time
     for attempt in attemptArgs:
         q.put_nowait(attempt)
-    # setup our total to count toards
-    initalQSize = q.qsize()
+    # setup our total to count towards
+    initialQSize = q.qsize()
     # create threads
     for tid in range(args.numThreads):
         t = threading.Thread(target=testCreds, args=(tid,))
@@ -204,7 +204,7 @@ def main():
         threads.append(t)
     try:
         while not q.empty():
-            sys.stdout.write(colored('[%d/%d]\r' % (initalQSize - q.qsize(), initalQSize), 'green'))
+            sys.stdout.write(colored('[%d/%d]\r' % (initialQSize - q.qsize(), initialQSize), 'green'))
         sys.stdout.write((' '*20) + '\r')
         for t in threads:
             t.join()
@@ -215,11 +215,11 @@ def main():
             q.get()
         for t in threads:
             t.join()
-    barrier = threading.Barrier(len(sucessfulAttempts)+1)
+    barrier = threading.Barrier(len(successfulAttempts)+1)
     running = True
     threads = []
 
-    for attempt in sucessfulAttempts:
+    for attempt in successfulAttempts:
         t = threading.Thread(target=executeCommands, args=(attempt,))
         t.start()
         threads.append(t)
@@ -277,11 +277,11 @@ def main():
                     barrier.wait()
                     while not q.empty():
                         attempt, result = q.get_nowait()
-                        print("%s %s@%s wrote sucessfully\n" % (colored("[###]",'green'), attempt[2], attempt[0]))
+                        print("%s %s@%s wrote successfully\n" % (colored("[###]",'green'), attempt[2], attempt[0]))
             elif option in 'exit':
                 break
             elif option in 'list':
-                for attempt in sucessfulAttempts:
+                for attempt in successfulAttempts:
                     print(colored('[###]', 'green'), 'ssh %s@%s -p %d password: %s' % (attempt[2],attempt[0],attempt[1], attempt[3]))
     except KeyboardInterrupt:
         print(colored('\n[###]', 'blue'), 'Finishing final operation.')
