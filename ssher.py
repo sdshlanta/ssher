@@ -1,21 +1,25 @@
-from termcolor import colored
-from pprint import pprint
-import multiprocessing
-import threading
+
+import argparse
 import ipaddress
 import itertools
-import paramiko
-import argparse
-import logging
-import masscan
-import socket
-import random
-import queue
-import time
 import json
-import sys
+import logging
+import multiprocessing
 import os
+import queue
+import random
 import re
+import socket
+import sys
+import threading
+import time
+from dataclasses import dataclass
+from pprint import pprint
+
+import masscan
+import paramiko
+import paramiko.ssh_exception
+from termcolor import colored
 
 def get_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -54,7 +58,7 @@ def executeCommands(attempt):
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
         client.connect(*attempt)
-    except paramiko.ssh_exception.AuthenticationException:
+    except paramiko.AuthenticationException:
         sys.stderr.write(colored('[!!!]', 'red') + '%s@%s login failed.\n' % (attempt[2], attempt[0]))
         client.close()
         del successfulAttempts[attempt]
@@ -68,7 +72,7 @@ def executeCommands(attempt):
                 except:
                     try:
                         client.connect(*attempt)
-                    except paramiko.ssh_exception.AuthenticationException:
+                    except paramiko.AuthenticationException:
                         sys.stderr.write(colored('[!!!]','red') + '%s@%s login failed.\n' % (attempt[2], attempt[0]))
                         break
                     try:
@@ -79,7 +83,8 @@ def executeCommands(attempt):
                 q.put((attempt, result))
             else:
                 try:
-                    sftp = paramiko.SFTPClient.from_transport(client.get_transport())
+                    transport = client.get_transport()
+                    sftp = paramiko.SFTPClient.from_transport(transport)
                     try:
                         confirm = sftp.put(localPath, remotePath, confirm=True)
                         q.put((attempt, confirm))
@@ -129,7 +134,9 @@ def testCreds(tid):
             pass
         except Exception as e:
             sys.stderr.write(colored('[!!!]', 'red') + ' %s retrying\n' % str(e))
-            q.put(attempt)
+            # Only attempt to re-insert if we got the attempt out of the queue
+            if 'attempt' in locals():
+                q.put(attempt)
         finally:
             client.close()
 
@@ -190,7 +197,8 @@ def main():
         hosts = scan.keys()
     
     # build up attempt queue
-    attemptArgs = list(itertools.product(hosts, map(int, config['netcfg']['ports']), config['users'], config['passwords']))
+    ports = map(int, config['netcfg']['ports'])
+    attemptArgs = list(itertools.product(hosts, ports, config['users'], config['passwords']))
     random.shuffle(attemptArgs) # ensure we aren't slamming the same host/user all the time
     for attempt in attemptArgs:
         q.put_nowait(attempt)
